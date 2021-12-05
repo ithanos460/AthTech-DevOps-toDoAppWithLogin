@@ -3,4 +3,32 @@ pipeline {
     triggers {
       githubPush()
     }
+    environment {
+      IMAGE_NAME = 'nikpolik/devops-todo'
+      DOCKER_CRED = credentials('nikpolik-dockerhub')
+    }
+    stages {
+        stage('Build Web App') {
+          steps {
+            echo 'Builing War file...'
+            sh 'mvn clean package'
+          }
+        }
+        stage('Build Docker Images') {
+          steps {
+            echo 'Login in to dockerhub...'
+            sh "docker login -u ${DOCKER_CRED_USR} -p ${DOCKER_CRED_PSW}"
+            echo 'Building webapp Image...'
+            sh "docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} ."
+            sh "docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${IMAGE_NAME}:latest"
+            echo 'Publishing web app image...'
+            sh "docker push ${IMAGE_NAME}"
+          }
+        }
+    }
+    post {
+      success {
+        echo 'Deploy Succeeded'
+      }
+    }
 }
