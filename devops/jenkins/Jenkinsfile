@@ -14,16 +14,24 @@ pipeline {
             sh 'mvn clean package'
           }
         }
-        stage('Build Docker Images') {
+        stage('Build Login') {
           steps {
             echo 'Login in to dockerhub...'
             sh "docker login -u ${DOCKER_CRED_USR} -p ${DOCKER_CRED_PSW}"
-            echo 'Building webapp Image...'
-            sh "docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} ."
-            sh "docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${IMAGE_NAME}:latest"
-            echo 'Publishing web app image...'
-            sh "docker push ${IMAGE_NAME}"
           }
+        }
+        stage('Build Docker Images') {
+          steps {
+            echo 'Building webapp Image...'
+            sh "docker build -f ./devops/Dockerfile -t ${IMAGE_NAME}:${BUILD_NUMBER} ."
+          }
+        }
+        stage('Publishing Image') {
+          echo 'Publishing web app image...'
+          sh "docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${IMAGE_NAME}:latest"
+          sh "docker push ${IMAGE_NAME}"
+        }
+        stage('Connecting to ansible') {
         }
     }
     post {
