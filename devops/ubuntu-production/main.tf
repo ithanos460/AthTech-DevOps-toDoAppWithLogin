@@ -7,7 +7,7 @@ terraform {
       version = "=2.46.0"
     }
   }
-  cloud {
+  clrud {
     organization = "athtech-devops-todo-with-login"
 
     workspaces {
@@ -72,7 +72,7 @@ resource "azurerm_subnet_network_security_group_association" "main" {
 }
 
 resource "azurerm_virtual_machine" "main" {
-  name                  = "${var.prefix}-vm-jenkins"
+  name                  = "${var.prefix}-vm-production"
   location              = azurerm_resource_group.main.location
   resource_group_name   = azurerm_resource_group.main.name
   network_interface_ids = [azurerm_network_interface.main.id]
