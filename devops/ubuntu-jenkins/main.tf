@@ -157,7 +157,7 @@ variable "admin_username" {
   description = "The username of the admin account"
 }
 
-variable "admin_username" {
+variable "admin_password" {
   type        = string
   description = "The password of the admin account"
 }
