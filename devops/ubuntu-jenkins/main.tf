@@ -7,6 +7,13 @@ terraform {
         version = "=2.46.0"
       }
     }
+    cloud {
+      organization = "athtech-devops-todo-with-login"
+
+      workspaces {
+        name = "production"
+      }
+    }
   }
   
   # Configure the Microsoft Azure Provider
