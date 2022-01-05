@@ -23,7 +23,7 @@ provider "azurerm" {
 
 # Create a resource group
 resource "azurerm_resource_group" "main" {
-  name     = "devops-ng-rg"
+  name     = "${var.prefix}-rg"
   location = "West Europe"
 }
 
@@ -39,13 +39,6 @@ resource "azurerm_subnet" "main" {
   resource_group_name  = azurerm_resource_group.main.name
   virtual_network_name = azurerm_virtual_network.main.name
   address_prefixes     = ["10.0.1.0/24"]
-}
-
-resource "azurerm_public_ip" "main" {
-  name                = "${var.prefix}-pip"
-  location            = azurerm_resource_group.main.location
-  resource_group_name = azurerm_resource_group.main.name
-  allocation_method   = "Static"
 }
 
 resource "azurerm_network_security_group" "main" {
@@ -71,61 +64,37 @@ resource "azurerm_subnet_network_security_group_association" "main" {
   network_security_group_id = azurerm_network_security_group.main.id
 }
 
-resource "azurerm_virtual_machine" "main" {
-  name                  = "${var.prefix}-vm-jenkins"
-  location              = azurerm_resource_group.main.location
-  resource_group_name   = azurerm_resource_group.main.name
-  network_interface_ids = [azurerm_network_interface.main.id]
-  vm_size               = "Standard_B2s" # Standard_DS1_v2"
-
-  storage_image_reference {
-    publisher = "Canonical"
-    offer     = "UbuntuServer"
-    sku       = "18.04-LTS"
-    version   = "latest"
+module "jenkins-vm" {
+  source = "./modules/virtual-machine"
+  
+  prefix = var.prefix
+  rg = {
+    "name": azurerm_resource_group.main.name,
+    "location": azurerm_resource_group.main.location
   }
-
-  storage_os_disk {
-    name              = "ngosdisk1"
-    caching           = "ReadWrite"
-    create_option     = "FromImage"
-    managed_disk_type = "Standard_LRS"
+  subnet = {
+    "name": azurerm_subnet.main.name,
+    "id": azurerm_subnet.main.id
   }
-
-  os_profile {
-    computer_name  = "hostname"
-    admin_username = var.admin_username
-    admin_password = var.admin_password
-  }
-
-  os_profile_linux_config {
-    disable_password_authentication = false
-  }
+  postfix = "jenkins"
+  admin_username = var.vm_username
+  admin_password = var.vm_password
 }
 
-resource "azurerm_network_interface" "main" {
-  name                = "${var.prefix}-nic"
-  location            = azurerm_resource_group.main.location
-  resource_group_name = azurerm_resource_group.main.name
 
-  ip_configuration {
-    name                          = "internal"
-    subnet_id                     = azurerm_subnet.main.id
-    private_ip_address_allocation = "Dynamic"
-    public_ip_address_id          = azurerm_public_ip.main.id
+module "production-vm" {
+  source = "./modules/virtual-machine"
+  
+  prefix = var.prefix
+  rg = {
+    "name": azurerm_resource_group.main.name,
+    "location": azurerm_resource_group.main.location
   }
-}
-
-variable "prefix" {
-  default = "devops-ng"
-}
-
-variable "admin_username" {
-  type        = string
-  description = "The username of the admin account"
-}
-
-variable "admin_password" {
-  type        = string
-  description = "The password of the admin account"
+  subnet = {
+    "name": azurerm_subnet.main.name,
+    "id": azurerm_subnet.main.id
+  }
+  postfix = "production"
+  admin_username = var.vm_username
+  admin_password = var.vm_password
 }

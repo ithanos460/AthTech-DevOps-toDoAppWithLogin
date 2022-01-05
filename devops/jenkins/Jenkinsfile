@@ -5,7 +5,8 @@ pipeline {
     }
     environment {
       IMAGE_NAME = 'nikpolik/devops-todo'
-      DOCKER_CRED = credentials('nikpolik-dockerhub')
+      DOCKER_CRED = credentials('docker')
+      PRODUCTION_VM_CRED = credentials('ubuntu-production-credentials')
     }
     stages {
         stage('Build Web App') {
@@ -31,6 +32,20 @@ pipeline {
             echo 'Publishing web app image...'
             sh "docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${IMAGE_NAME}:latest"
             sh "docker push ${IMAGE_NAME}"
+          }
+        }
+        stage('Production VM setup') {
+          setps {
+            echo 'Building production VM'
+            dir('./terraform') {
+              sh """
+                terraform apply -target=module.producton-vm \
+                  -var='vm_username="${PRODUCTION_VM_CRED_USR}"' \
+                  -var='vm_password="${PRODUCTION_VM_CRED_PSW}"'
+              """
+              PRODUCTION_VM_IP = sh 'terraform output -json production_ip_adress | jq -r'
+              echo "${PRODUCTION_VM_IP}"
+            }
           }
         }
     }
