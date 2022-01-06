@@ -1,0 +1,91 @@
+pipeline {
+    agent any
+    triggers {
+      githubPush()
+    }
+    environment {
+      IMAGE_NAME = 'nikpolik/devops-todo'
+      DOCKER_CRED = credentials('docker')
+      PRODUCTION_VM_CRED = credentials('ubuntu-production-credentials')
+      TERRAFORM_TOKEN = credentials('terraform-token')
+      DB_PASS = credentials('db-pass')
+    }
+    stages {
+        stage('Build Web App') {
+          steps {
+            echo 'Builing War file...'
+            sh 'mvn clean package'
+          }
+        }
+        stage('Build Login') {
+          steps {
+            echo 'Login in to dockerhub...'
+            sh "docker login -u ${DOCKER_CRED_USR} -p ${DOCKER_CRED_PSW}"
+          }
+        }
+        stage('Build Docker Images') {
+          steps {
+            echo 'Building webapp Image...'
+            sh "docker build -f ./devops/Dockerfile -t ${IMAGE_NAME}:${BUILD_NUMBER} ."
+          }
+        }
+        stage('Publishing Image') {
+          steps {
+            echo 'Publishing web app image...'
+            sh "docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${IMAGE_NAME}:latest"
+            sh "docker push ${IMAGE_NAME}"
+          }
+        }
+        stage('Production VM setup') {
+          steps {
+            echo 'Building production VM'
+            dir('./devops/terraform') {
+              sh 'terraform init'
+              sh """
+                terraform apply \
+                  --auto-approve \
+                  -var='prefix="devops-ng-production"' \
+                  -var='vm_username="${PRODUCTION_VM_CRED_USR}"' \
+                  -var='vm_password="${PRODUCTION_VM_CRED_PSW}"'
+              """
+              script {
+                PRODUCTION_VM_IP = sh(
+                  script: '/bin/bash -c "terraform output -raw production_ip_address"',
+                  returnStdout: true
+                ).trim()
+              }
+            }
+          }
+        }
+        stage('Generate Ansible Configuration') {
+          steps {
+            dir('./devops/ansible') {
+              echo "generating host file"
+              writeFile file: 'hosts', text: """
+[clients]
+${PRODUCTION_VM_IP}
+
+[clients:vars]
+ansible_python_interpreter=/usr/bin/python3
+"""
+            }
+          }
+        }
+        stage('Running deploy playbook') {
+          steps {
+            dir('./devops/ansible') {
+              echo "Running playbook"
+              sh """
+                    ansible-playbook -i hosts -u ${PRODUCTION_VM_CRED_USR} deploy.yml \
+                    --extra-vars="db_pass=${DB_PASS} user=${PRODUCTION_VM_CRED_USR}"
+                 """
+            }
+          }
+        }
+    }
+    post {
+      success {
+        echo 'Deploy Succeeded'
+      }
+    }
+}

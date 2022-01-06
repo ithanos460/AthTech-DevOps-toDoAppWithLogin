@@ -1,0 +1,19 @@
+version: "3.9"  # optional since v1.27.0
+services:
+  mysql_server:
+    image: mysql
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: "${DB_PASS}"
+    volumes:
+      - /var/lib/mysql:/var/lib/mysql
+  web:
+    image: nikpolik/devops-todo
+    ports:
+      - "8080:8080"
+    environment:
+      DB_PASS: "${DB_PASS}"
+    depends_on:
+      - mysql_server
+    links:
+      - mysql_server
